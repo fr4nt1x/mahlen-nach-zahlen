@@ -1,24 +1,34 @@
-from PIL import Image
+from PIL import Image, ImageFilter
+
 import numpy as np
+from colorthief import ColorThief
+from ColorReducer.color_reducer import ColorReducer
+from AreaSelector.area_collector import AreaCollector
 
-def create_grey_colors():
-    colors = np.multiply(np.tile(np.arange(0, 254, dtype=np.int64), 3).reshape((3,254)).transpose(), np.ones((254, 3), dtype=np.int64))
-    return colors
+
 if __name__ == "__main__":
+    path_to_image = 'data/Elefant.jpg'
+    path_output_image = 'data/rect.bmp'
 
-    colors = create_grey_colors()
-    im = Image.open('data/test2.jpg')
+    color_thief = ColorThief(path_to_image)
+    # build a color palette
+    colors = np.asarray(color_thief.get_palette(color_count=12, quality=1), dtype=np.int64)
 
+    im = Image.open(path_to_image)
+    im = im.filter(ImageFilter.GaussianBlur(2))
+    #im.show()
     image_array = np.array(im)
-    new_image_array = np.zeros(image_array.shape, dtype=np.uint8)
-    new_array_shape = list(image_array.shape[0:2])
-    new_array_shape.append(len(colors))
-    color_array = np.zeros(shape=new_array_shape)
-    for index, color in enumerate(colors):
-        difference_color = np.linalg.norm(color-image_array, axis=2)
-        color_array[:, :, index] = difference_color
+    color_reducer = ColorReducer(image_array, colors)
+    color_reducer.reduce_color()
+    area_collector = AreaCollector(color_reducer.output_image)
+    area_image = area_collector.find_areas()
+    new_image_array = np.array(color_reducer.output_image)
+    Image.fromarray(color_reducer.output_image).show()
+    index = area_image == 0
+    index = index.all(axis=2)
+    new_image_array[index, :] = 0
+    Image.fromarray(new_image_array).show()
 
-    minimum_dist_index = np.argmin(color_array, axis=2)
-    new_image_array = np.array(colors[minimum_dist_index],dtype=np.uint8)
-    new_image = Image.fromarray(new_image_array)
-    new_image.save('data/testoutput.jpg')
+
+
+    #new_image.save(path_output_image)
