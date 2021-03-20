@@ -1,5 +1,5 @@
 from PIL import Image, ImageFilter
-
+import cv2 as cv
 import numpy as np
 from colorthief import ColorThief
 from ColorReducer.color_reducer import ColorReducer
@@ -12,15 +12,14 @@ if __name__ == "__main__":
 
     color_thief = ColorThief(path_to_image)
     # build a color palette
-    colors = np.asarray(color_thief.get_palette(color_count=12, quality=1), dtype=np.int64)
+    colors = np.unique(np.asarray(color_thief.get_palette(color_count=16, quality=1), dtype=np.int64), axis=0)
 
-    im = Image.open(path_to_image)
-    im = im.filter(ImageFilter.GaussianBlur(2))
-    #im.show()
-    image_array = np.array(im)
+    image_array = cv.imread(path_to_image)
+    image_array = cv.cvtColor(image_array, cv.COLOR_BGR2RGB)
+
     color_reducer = ColorReducer(image_array, colors)
     color_reducer.reduce_color()
-    area_collector = AreaCollector(path_to_image)
+    area_collector = AreaCollector(color_reducer.output_image, colors)
     area_image = area_collector.find_areas()
     new_image_array = np.array(color_reducer.output_image)
     Image.fromarray(color_reducer.output_image).save(path_output_image)
