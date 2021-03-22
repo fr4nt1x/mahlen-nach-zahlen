@@ -7,7 +7,7 @@ from AreaSelector.area_collector import AreaCollector
 
 
 if __name__ == "__main__":
-    path_to_image = 'data/reducedElefant.bmp'
+    path_to_image = 'data/test.jpg'
     path_output_image = 'data/reducedElefantOut.bmp'
 
     color_thief = ColorThief(path_to_image)
@@ -19,7 +19,8 @@ if __name__ == "__main__":
 
     color_reducer = ColorReducer(image_array, colors)
     color_reducer.reduce_color()
-    area_collector = AreaCollector(color_reducer.output_image, colors)
+
+    area_collector = AreaCollector(color_reducer.output_image, colors, 2000)
     area_image = area_collector.find_areas()
     new_image_array = np.array(color_reducer.output_image)
-    Image.fromarray(color_reducer.output_image).save(path_output_image)
+    #Image.fromarray(color_reducer.output_image).filter(ImageFilter.SHARPEN).save(path_output_image)
