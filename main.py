@@ -14,7 +14,7 @@ if __name__ == "__main__":
     color_thief = ColorThief(path_to_image)
 
     # build a color palette
-    colors = np.unique(np.asarray(color_thief.get_palette(color_count=8, quality=1), dtype=np.int64), axis=0)
+    colors = np.unique(np.asarray(color_thief.get_palette(color_count=16, quality=1), dtype=np.int64), axis=0)
 
     color_reducer = ColorReducer(image_array, colors)
     color_reducer.reduce_color()
