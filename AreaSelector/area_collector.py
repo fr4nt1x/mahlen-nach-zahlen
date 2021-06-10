@@ -1,6 +1,8 @@
 import numpy as np
 import cv2 as cv
 
+from ColorReducer.color_reducer import ColorReducer
+
 
 class AreaCollector(object):
     def __init__(self, input_image, colors, min_area=0):
@@ -17,7 +19,14 @@ class AreaCollector(object):
         cv.waitKey(0)
 
     def preprocess_image(self):
-        output_image = cv.medianBlur(self._input_image, 11)
+
+        color_reducer = ColorReducer(self._input_image, self._colors)
+        color_reducer.reduce_color()
+        output_image = color_reducer.output_image
+        output_image = cv.medianBlur(output_image, 31)
+        color_reducer = ColorReducer(output_image, self._colors)
+        color_reducer.reduce_color()
+        output_image = color_reducer.output_image
         self.show(output_image)
         self._input_image = output_image
 
@@ -29,20 +38,20 @@ class AreaCollector(object):
             mask = np.array(np.all(self._input_image == np.asarray(color), axis=2), dtype=np.uint8)
             img_one_color = cv.bitwise_and(self._input_image, self._input_image, mask=mask)
             image_gray = cv.cvtColor(img_one_color, cv.COLOR_RGB2GRAY)
-            contours, hierachy = cv.findContours(image_gray, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-            reduced_contours = [c for c in contours if abs(cv.contourArea(c, False)) > self._min_area]
-
-            cv.drawContours(self._output_image, reduced_contours, -1, (0, 0, 0), 1)
+            contours, hierarchy = cv.findContours(image_gray, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+            reduced_contours = [c for c in contours if abs(cv.contourArea(c, True)) > self._min_area]
+            #  reduced_contours = contours
+            cv.drawContours(self._output_image, reduced_contours, -1, color.tolist(), thickness=-1, lineType=cv.LINE_8)
 
             for contour in reduced_contours:
-                self._put_color_at_contour(contour, index)
-
+                self._put_color_at_contour(contour, index, color)
+            # self.show(self._output_image)
             index += 1
         self.show(self._output_image)
 
-    def _put_color_at_contour(self, contour, index):
+    def _put_color_at_contour(self, contour, index, color):
         font = cv.FONT_HERSHEY_SIMPLEX
-        font_color = (100, 100, 100)
+        font_color = color.tolist()
         text = str(index)
         font_size = 0.4
         font_thickness = 1
