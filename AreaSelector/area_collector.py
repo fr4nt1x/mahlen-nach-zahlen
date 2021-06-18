@@ -61,7 +61,7 @@ class AreaCollector(object):
         color_reducer = ColorReducer(self._input_image, self._colors)
         color_reducer.reduce_color()
         output_image = color_reducer.output_image
-        output_image = cv.medianBlur(output_image, 31)
+        output_image = cv.medianBlur(output_image, 11)
         color_reducer = ColorReducer(output_image, self._colors)
         color_reducer.reduce_color()
         output_image = color_reducer.output_image
@@ -86,13 +86,12 @@ class AreaCollector(object):
         mask = np.array(np.all(self._output_image == np.asarray(color), axis=2), dtype=np.uint8)
         img_one_color = cv.bitwise_and(self._output_image, self._output_image, mask=mask)
         image_gray = cv.cvtColor(img_one_color, cv.COLOR_RGB2GRAY)
-        # self.show(img_one_color)
-        contours, hierarchy = cv.findContours(image_gray, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+        contours, hierarchy = cv.findContours(image_gray, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
 
         for i, contour in enumerate(contours):
             color = self._get_neigbouring_color_for_contour(contour)
             cv.drawContours(self._output_image, contours, i, color, thickness=-1, lineType=cv.LINE_8)
-
         self.show(self._output_image)
         self._input_image = self._output_image
         self._output_image = self.get_white_image()
@@ -122,23 +121,39 @@ class AreaCollector(object):
 
     def _get_neigbouring_color_for_contour(self, contour):
         # TODO if white is found use alternative approach
-        color = [0, 0, 0]
-        if contour.shape[0] > 1:
-            vec = contour[0, 0, :] - contour[1, 0, :]
-            mat = np.array([[0, -1], [1, 0]])
-            vec_orth = np.dot(vec, mat) / np.linalg.norm(vec)
-            start_point = contour[0, 0, :]
-            end_point = start_point + vec_orth
-            if not self.is_in_image_range([end_point[1], end_point[0]]):
-                end_point = start_point - vec_orth
-            end_point = end_point.astype(np.int64)
-            color = self._output_image[end_point[1], end_point[0], :].tolist()
-        else:
-            start_point = contour[0, 0, :]
-            if start_point[0] == 0:
-                color = self._output_image[start_point[1], start_point[0] + 1, :].tolist()
-            else:
-                color = self._output_image[start_point[1], start_point[0] - 1, :].tolist()
+        color = [255, 255, 255]
+        # self.show(self._output_image)
+        found_colors = []
+        for i in range(0, contour.shape[0]):
+            current_point = np.flipud(contour[i, 0, :])
+            neighbor = np.array(current_point, copy=True)
+            neighbor[0] -= 1
+            if self.is_in_image_range(neighbor):
+                current_color = self._output_image[neighbor[0], neighbor[1], :].tolist()
+                if current_color != [255, 255, 255]:
+                    found_colors.append(current_color)
+            neighbor = np.array(current_point, copy=True)
+            neighbor[0] += 1
+            if self.is_in_image_range(neighbor):
+                current_color = self._output_image[neighbor[0], neighbor[1], :].tolist()
+                if current_color != [255, 255, 255]:
+                    found_colors.append(current_color)
+            neighbor = np.array(current_point, copy=True)
+            neighbor[1] -= 1
+            if self.is_in_image_range(neighbor):
+                current_color = self._output_image[neighbor[0], neighbor[1], :].tolist()
+                if current_color != [255, 255, 255]:
+                    found_colors.append(current_color)
+            neighbor = np.array(current_point, copy=True)
+            neighbor[1] += 1
+            if self.is_in_image_range(neighbor):
+                current_color = self._output_image[neighbor[0], neighbor[1], :].tolist()
+                if current_color != [255, 255, 255]:
+                    found_colors.append(current_color)
+
+        if found_colors:
+            colors_tuple = [tuple(c) for c in found_colors]
+            color = max(set(colors_tuple), key=colors_tuple.count)
         if color == [255, 255, 255]:
             print("Warning: White found should not happen.")
         return color
@@ -149,21 +164,33 @@ class AreaCollector(object):
         distance_color = 20
         text = str(index)
         font_size = 1
-        font_thickness = 1
-        vec = contour[0, 0, :] - contour[1, 0, :]
-        mat = np.array([[0, -1], [1, 0]])
-        vec_orth = np.dot(vec, mat) / np.linalg.norm(vec)
-        start_point = contour[0, 0, :]
-        end_point = start_point - vec_orth * distance_color
-        if not self.is_in_image_range(list(reversed(end_point))):
-            end_point = start_point + vec_orth * distance_color
+        font_thickness = 2
+        line_thickness = 1
+        draw_color = True
+
+        if contour.shape[0] == 1:
+            start_point = contour[0, 0, :]
+            end_point = contour[0, 0, :]
+            font_color = [255, 0, 0]
+            draw_color = False
+        else:
+            vec = contour[0, 0, :] - contour[1, 0, :]
+            mat = np.array([[0, -1], [1, 0]])
+            vec_orth = np.dot(vec, mat) / np.linalg.norm(vec)
+            start_point = contour[0, 0, :]
+            end_point = start_point - vec_orth * distance_color
+            if not self.is_in_image_range(list(reversed(end_point))):
+                end_point = start_point + vec_orth * distance_color
 
         end_point = end_point.astype(np.int64)
-        self._output_image = cv.line(self._output_image, tuple(start_point), tuple(end_point), font_color,
-                                     font_thickness)
-        self._output_image = cv.putText(self._output_image, text, (int(end_point[0]), int(end_point[1])), font,
-                                        font_size, font_color, font_thickness, cv.LINE_8)
-
+        if draw_color:
+            self._output_image = cv.line(self._output_image, tuple(start_point), tuple(end_point), font_color,
+                                         line_thickness)
+            self._output_image = cv.putText(self._output_image, text, (int(end_point[0]), int(end_point[1])), font,
+                                            font_size, font_color, font_thickness, cv.LINE_8)
+        else:
+            # Delete previously drawn contour
+            cv.drawContours(self._output_image, [contour], -1, [255, 255, 255], thickness=1, lineType=cv.LINE_8)
     def is_in_image_range(self, point):
         result = True
         shape = self._input_image.shape
