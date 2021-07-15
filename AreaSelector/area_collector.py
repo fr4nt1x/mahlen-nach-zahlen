@@ -11,6 +11,7 @@ class AreaCollector(object):
         self._min_area = min_area
         self._output_image = self.get_white_image()
         self._color_image = self._create_color_image()
+        self._all_contours = []
 
     def _create_color_image(self):
         length = 64
@@ -99,6 +100,7 @@ class AreaCollector(object):
     def find_areas(self):
         index = 0
         black = np.array([0, 0, 0])
+        all_contours = []
         for color in self._colors:
             print("Processing Color (R,G,B) : {}".format(color))
             mask = np.array(np.all(self._input_image == np.asarray(color), axis=2), dtype=np.uint8)
@@ -107,16 +109,14 @@ class AreaCollector(object):
             contours, hierarchy = cv.findContours(image_gray, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
             # reduced_contours = [c for c in contours if abs(cv.contourArea(c, True)) < self._min_area]
-
+            self._all_contours += contours
             #  reduced_contours = contours
             cv.drawContours(self._output_image, contours, -1, black.tolist(), thickness=1, lineType=cv.LINE_8)
             #  cv.drawContours(self._output_image, reduced_contours, -1, [255, 255, 255], thickness=-1, lineType=cv.LINE_8)
-
             for contour in contours:
                 self._put_color_at_contour(contour, index, black)
             # self.show(self._output_image)
             index += 1
-
         self.show(self._output_image)
 
     def _get_neigbouring_color_for_contour(self, contour):
@@ -191,6 +191,7 @@ class AreaCollector(object):
         else:
             # Delete previously drawn contour
             cv.drawContours(self._output_image, [contour], -1, [255, 255, 255], thickness=1, lineType=cv.LINE_8)
+
     def is_in_image_range(self, point):
         result = True
         shape = self._input_image.shape
@@ -199,3 +200,18 @@ class AreaCollector(object):
         elif point[0] >= shape[0] or point[1] >= shape[1]:
             result = False
         return result
+
+    def save_svg_with_all_contours(self, path):
+        with open(path, "w+") as f:
+            f.write(
+                '<svg width="{w}" height="{h}" xmlns="http://www.w3.org/2000/svg">'.format(h=self._input_image.shape[0],
+                                                                                           w=self._input_image.shape[
+                                                                                               1]))
+
+            for c in self._all_contours:
+                f.write('<path d="M')
+                for i in range(len(c)):
+                    x, y = c[i][0]
+                    f.write(f"{x} {y} ")
+                f.write('" style="stroke:pink"/>')
+            f.write("</svg>")
