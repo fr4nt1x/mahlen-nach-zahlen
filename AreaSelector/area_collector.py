@@ -210,8 +210,13 @@ class AreaCollector(object):
 
             for c in self._all_contours:
                 f.write('<path d="M')
+
                 for i in range(len(c)):
+                    if i == 0:
+                        x0, y0 = c[i][0]
                     x, y = c[i][0]
                     f.write(f"{x} {y} ")
-                f.write('" style="stroke:pink"/>')
+                f.write(f"{x0} {y0} ")
+                f.write('" fill-opacity="0" style="stroke:black"/>')
+
             f.write("</svg>")
